@@ -9,6 +9,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#fbf6ec;--card:#fff;--tx:#2a2112;--mu:#7d6f55;--pr:#b07208;--prt:#fff;--hn:#f4c05a;--hn2:#fdf0d0;--ok:#2f9e44;--bad:#e03131;--bd:#eadfc6}
@@ -167,5 +168,6 @@ if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWor
 (async()=>{await loadPublic();await loadMe();if(S.me&&S.me.role==='admin')await loadRequests();render()})();
 </script>
 <script src="features.js"></script>
+<script src="features2.js"></script>
 </body>
 </html>

@@ -30,7 +30,7 @@ async function loadTab(){
     S.staff=(m.data||[]).map(x=>x.profiles).filter(p=>p&&(p.role==='doctor'||p.role==='ta'));
     const c=await sb.from('courses').select('id,name,year_id,absence_limit_lecture,units(id,kind,name,day,start_time,end_time,capacity,instructor_id,sections(name))').eq('faculty_id',fid()).order('name');S.courses=c.data||[]}
   if(r==='student'&&S.tab==='my'){const c=await sb.from('courses').select('id,name,absence_limit_lecture,units(id,kind,name,day,start_time,end_time)').order('name');S.courses=c.data||[]}
-  if((r==='doctor'||r==='ta')&&S.tab==='my'){const u=await sb.from('units').select('id,name,kind,day,start_time,end_time,mode,timer_end,loc_lat,loc_lng,loc_radius,courses(name)').eq('instructor_id',S.me.id);S.units=u.data||[]}
+  if((r==='doctor'||r==='ta')&&S.tab==='my'){const u=await sb.from('units').select('id,name,kind,day,start_time,end_time,mode,timer_end,loc_lat,loc_lng,loc_radius,capacity,courses(name)').eq('instructor_id',S.me.id);S.units=u.data||[]}
 }
 async function go(t){S.tab=t;S.uid=null;S.cid=null;await loadTab();render()}
 /* ---- admin: courses ---- */
@@ -112,9 +112,11 @@ window.render=function(){
   else if(S.tab==='set')body=`<div class="card"><h3>الإعدادات</h3><label>الإيميل</label><input value="${esc(m.email)}" disabled><label>رقم الموبايل</label><input id="sp" value="${esc(m.phone||'')}"><button class="full" onclick="if(!okPhone(val('sp').trim()))return toast('رقم الموبايل غير صحيح');savePhone()">حفظ</button></div>`;
   else if(adm&&S.tab==='req')body=homeView().split('<div class="tabs">')[1].split('</div>').slice(1).join('</div>');
   else if(adm&&S.tab==='crs')body=adminCourses();
+  else if(adm&&S.tab==='xls')body=xlsView();
+  else if(m.role==='student'&&S.tab==='sch')body=schedView();
   else if(m.role==='student')body=S.cid?courseView():`<div class="card"><h3>موادي</h3>${(S.courses||[]).map(c=>`<div class="row"><b>${esc(c.name)}</b><button onclick="openCourse('${c.id}')">فتح</button></div>`).join('')||'<div class="mu">لا توجد مواد لفرقتك بعد.</div>'}</div>`;
   else body=S.uid?unitView():`<div class="card"><h3>موادي</h3>${(S.units||[]).map(u=>`<div class="row"><div><b>${esc(u.courses&&u.courses.name)}</b> <span class="tag">${u.kind==='lecture'?'محاضرة':esc(u.name)}</span><div class="mu">${DAYS[u.day]} ${t5(u.start_time)}-${t5(u.end_time)}</div></div><button onclick="openUnit('${u.id}')">فتح</button></div>`).join('')||'<div class="mu">لا توجد مواد مسندة إليك بعد.</div>'}</div>`;
-  app.innerHTML=`<div class="card hd"><b>🎓 ${esc(m.full_name)} <span class="tag">${ROLE[m.role]}</span></b><button onclick="logout()">خروج</button></div><div class="tabs">${adm?tb('req','الطلبات')+tb('crs','المواد'):ok?tb('my','موادي'):''}${ok?tb('set','الإعدادات'):''}</div>${body}`;
+  app.innerHTML=`<div class="card hd"><b>🎓 ${esc(m.full_name)} <span class="tag">${ROLE[m.role]}</span></b><button onclick="logout()">خروج</button></div><div class="tabs">${adm?tb('req','الطلبات')+tb('crs','المواد')+tb('xls','التقارير'):ok?tb('my','موادي')+(m.role==='student'?tb('sch','جدولي'):''):''}${ok?tb('set','الإعدادات'):''}</div>${body}`;
   if(S.sub==='met'&&S.uid)drawQR()};
 window.decide=async function(u,f,ok){const r=await sb.rpc('approve_membership',{p_user:u,p_faculty:f,p_ok:ok});if(r.error)return toast(errMsg(r.error));toast(ok?'تم القبول ✅':'تم الرفض');await loadRequests();render()};
 render();
