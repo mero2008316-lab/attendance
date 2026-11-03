@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c58a1b">
+<title>الحضور الذكي</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#fbf6ec;--card:#fff;--tx:#2a2112;--mu:#7d6f55;--pr:#b07208;--prt:#fff;--hn:#f4c05a;--hn2:#fdf0d0;--ok:#2f9e44;--bad:#e03131;--bd:#eadfc6}
+:root[data-theme="dark"]{--bg:#16120b;--card:#221b10;--tx:#f3ead8;--mu:#b5a688;--pr:#e0a030;--prt:#1b1204;--hn:#c58a1b;--hn2:#2e2310;--bd:#3d3120;--ok:#51cf66;--bad:#ff6b6b}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:15px;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+.wrap{max-width:920px;margin:auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:12px}
+.narrow{max-width:440px;margin:28px auto}
+h2,h3{margin:0 0 10px;font-weight:600}
+label{display:block;color:var(--mu);font-size:13px;margin:10px 0 3px}
+input,select,button{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);width:100%}
+input[type=checkbox]{width:auto;margin-left:6px}
+button{background:var(--pr);color:var(--prt);border:0;cursor:pointer;font-weight:600;width:auto;padding:10px 18px}
+button.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}button.bad{background:var(--bad);color:#fff}button.ok{background:var(--ok);color:#fff}
+button:disabled{opacity:.6}
+.full{width:100%;margin-top:14px}
+.link{background:none;color:var(--pr);padding:4px;border:0;font-weight:500}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;background:linear-gradient(90deg,var(--hn),var(--pr));color:#1b1204;border:0;flex-wrap:wrap}
+.hd button{background:rgba(255,255,255,.35);color:#1b1204}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--bd);margin:6px 0 14px;overflow-x:auto}
+.tabs button{background:none;color:var(--mu);border:0;border-bottom:2px solid transparent;border-radius:0;padding:10px 2px;font-weight:500}
+.tabs button.on{color:var(--tx);border-bottom-color:var(--pr)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}.mu{color:var(--mu);font-size:13px}.tag{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--hn2);border:1px solid var(--bd)}
+#tg{position:fixed;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:14px;z-index:5;width:42px;height:42px;padding:0;border-radius:50%;background:var(--card);color:var(--tx);border:1px solid var(--bd);box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:18px}
+#toast{position:fixed;bottom:calc(70px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:9;max-width:90%;text-align:center}
+.cb{display:flex;align-items:center;margin:6px 0;color:var(--tx)}
+</style>
+</head>
+<body>
+<button id="tg" onclick="toggleTheme()" aria-label="theme"></button>
+<div id="toast"></div>
+<div class="wrap" id="app"><div class="card narrow">جاري التحميل...</div></div>
+<script>
+/* ====== Settings (public values, safe to expose) ====== */
+const SUPABASE_URL='https://fcopxtbenksodfmobliq.supabase.co';
+const SUPABASE_KEY='sb_publishable_nRTFpE-BL9Hvcbrkg84B5Q_mXLcybos';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const S={screen:'login',faculties:[],years:[],me:null,mem:[],tab:'req',busy:false};
+const ROLE={student:'طالب',doctor:'دكتور',ta:'معيد',admin:'أدمن',pending_admin:'أدمن (بانتظار الكود)'};
+const ERR={'Invalid login credentials':'الإيميل أو كلمة المرور غير صحيحة','User already registered':'الإيميل مسجل قبل كده','bad_code':'كود الأدمن غير صحيح لهذه الكلية','not_allowed':'غير مسموح لك بهذا الإجراء','Password should be':'كلمة المرور قصيرة (6 أحرف على الأقل)','Email not confirmed':'الإيميل غير مؤكد (اقفلي Confirm email من Supabase)','rate limit':'محاولات كتير، استني شوية وجربي تاني'};
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',4000)}
+function errMsg(e){const m=(e&&e.message)||String(e);for(const k in ERR)if(m.includes(k))return ERR[k];return 'حصل خطأ: '+m}
+const val=id=>(document.getElementById(id)||{}).value||'';
+
+/* ====== Theme ====== */
+function applyTheme(t){document.documentElement.dataset.theme=t;$('#tg').textContent=t==='dark'?'☀️':'🌙'}
+function toggleTheme(){const n=document.documentElement.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('theme',n)}catch(e){}applyTheme(n)}
+let th;try{th=localStorage.getItem('theme')}catch(e){}if(!th)th=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';applyTheme(th);
+
+/* ====== Data ====== */
+async function loadPublic(){
+  const f=await sb.from('faculties').select('id,university,name').order('name');
+  const y=await sb.from('years').select('id,faculty_id,name').order('name');
+  S.faculties=f.data||[];S.years=y.data||[];
+}
+async function loadMe(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){S.me=null;S.screen=S.screen==='login'||!S.screen?'login':S.screen;return}
+  const p=await sb.from('profiles').select('id,role,full_name,email,phone,student_id').eq('id',session.user.id).single();
+  if(p.error){toast(errMsg(p.error));S.me=null;return}
+  S.me=p.data;
+  const m=await sb.from('memberships').select('faculty_id,year_id,status,faculties(name,university)').eq('user_id',session.user.id);
+  S.mem=m.data||[];S.screen='home';
+  S.tab=S.me.role==='admin'?'req':'home';
+}
+
+/* ====== Auth actions ====== */
+async function doLogin(){
+  const b=$('#go');b.disabled=true;
+  const {error}=await sb.auth.signInWithPassword({email:val('e').trim().toLowerCase(),password:val('p')});
+  b.disabled=false;if(error)return toast(errMsg(error));
+  await loadMe();render();
+}
+async function doRegister(kind){
+  const e=val('e').trim().toLowerCase(),p=val('p'),n=val('n').trim();
+  if(!n||!e||p.length<6)return toast('كمّلي البيانات (كلمة المرور 6 أحرف على الأقل)');
+  let data={role:kind==='admin'?'admin':kind,full_name:n};
+  if(kind==='student'){
+    if(!val('sid')||val('nid').length!==14)return toast('أدخلي الـID والرقم القومي (14 رقم)');
+    if(!val('fac')||!val('yr'))return toast('اختاري الكلية والفرقة');
+    Object.assign(data,{student_id:val('sid').trim(),national_id:val('nid').trim(),faculty_id:val('fac'),year_id:val('yr')});
+  }else if(kind==='doctor'||kind==='ta'){
+    const ids=[...document.querySelectorAll('.cc:checked')].map(x=>x.value);
+    if(!val('ph')||!ids.length)return toast('أدخلي الموبايل واختاري كلية واحدة على الأقل');
+    data.role=val('rl');Object.assign(data,{phone:val('ph').trim(),faculty_ids:ids});
+  }else if(!val('fac')||!val('code'))return toast('اختاري الكلية وأدخلي كود الأدمن');
+  const b=$('#go');b.disabled=true;
+  const r=await sb.auth.signUp({email:e,password:p,options:{data}});
+  if(r.error){b.disabled=false;return toast(errMsg(r.error))}
+  if(!r.data.session){b.disabled=false;return toast('تم إنشاء الحساب. لازم تأكدي الإيميل أو تقفلي Confirm email من Supabase')}
+  if(kind==='admin'){const a=await sb.rpc('register_admin',{p_faculty:val('fac'),p_code:val('code').trim()});if(a.error)toast(errMsg(a.error))}
+  await loadMe();b.disabled=false;
+  toast(kind==='admin'&&S.me&&S.me.role==='admin'?'تم تسجيلك كأدمن ✅':'تم إرسال الطلب، بانتظار موافقة الأدمن');render();
+}
+async function submitAdminCode(){
+  const a=await sb.rpc('register_admin',{p_faculty:val('fac'),p_code:val('code').trim()});
+  if(a.error)return toast(errMsg(a.error));await loadMe();render();
+}
+async function logout(){await sb.auth.signOut();S.me=null;S.screen='login';render()}
+
+/* ====== Admin actions ====== */
+async function loadRequests(){
+  const r=await sb.from('memberships').select('user_id,faculty_id,status,faculties(name),years(name),profiles(full_name,email,phone,student_id,role)').eq('status','pending');
+  S.reqs=r.data||[];if(r.error)toast(errMsg(r.error));
+}
+async function decide(u,f,ok){
+  const r=await sb.rpc('approve_membership',{p_user:u,p_faculty:f,p_ok:ok});
+  if(r.error)return toast(errMsg(r.error));toast(ok?'تم القبول ✅':'تم الرفض');await loadRequests();render();
+}
+async function savePhone(){
+  const r=await sb.from('profiles').update({phone:val('sp').trim()}).eq('id',S.me.id);
+  if(r.error)return toast(errMsg(r.error));S.me.phone=val('sp').trim();toast('تم الحفظ ✅')
+}
+
+/* ====== Views ====== */
+const facOpts=()=>'<option value="">اختاري...</option>'+S.faculties.map(f=>`<option value="${f.id}">${esc(f.name)} — ${esc(f.university)}</option>`).join('');
+function setYears(){const f=val('fac'),y=$('#yr');if(y)y.innerHTML='<option value="">اختاري...</option>'+S.years.filter(x=>x.faculty_id===f).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}
+const creds='<label>الإيميل</label><input id="e" type="email" dir="ltr" autocomplete="email"><label>كلمة المرور</label><input id="p" type="password" dir="ltr" autocomplete="current-password">';
+const back='<button class="link" onclick="S.screen=\'login\';render()">رجوع لتسجيل الدخول</button>';
+function authView(){
+  const s=S.screen;
+  if(s==='login')return `<div class="card narrow"><h2>🎓 الحضور الذكي</h2>${creds}<button id="go" class="full" onclick="doLogin()">دخول</button>
+  <div class="mu" style="margin:18px 0 6px">مستخدم جديد؟</div>
+  <button class="link" onclick="S.screen='student';render()">طالب</button> · <button class="link" onclick="S.screen='staff';render()">دكتور / معيد</button> · <button class="link" onclick="S.screen='admin';render()">أدمن كلية</button></div>`;
+  if(s==='student')return `<div class="card narrow"><h2>تسجيل طالب</h2><label>الاسم (كما في الكارنيه)</label><input id="n"><label>الرقم الجامعي (ID)</label><input id="sid"><label>الرقم القومي</label><input id="nid" inputmode="numeric" maxlength="14">${creds}
+  <label>الكلية</label><select id="fac" onchange="setYears()">${facOpts()}</select><label>الفرقة</label><select id="yr"><option value="">اختاري الكلية أولاً</option></select>
+  <button id="go" class="full" onclick="doRegister('student')">إرسال الطلب</button><div style="margin-top:10px">${back}</div></div>`;
+  if(s==='staff')return `<div class="card narrow"><h2>تسجيل دكتور / معيد</h2><label>الاسم</label><input id="n"><label>رقم الموبايل</label><input id="ph" inputmode="tel">${creds}
+  <label>الصفة</label><select id="rl"><option value="doctor">دكتور</option><option value="ta">معيد</option></select><label>الكليات التي تدرّس بها</label>
+  ${S.faculties.map(f=>`<label class="cb"><input type="checkbox" class="cc" value="${f.id}">${esc(f.name)} — ${esc(f.university)}</label>`).join('')}
+  <button id="go" class="full" onclick="doRegister('doctor')">إرسال الطلب</button><div style="margin-top:10px">${back}</div></div>`;
+  return `<div class="card narrow"><h2>تسجيل أدمن كلية</h2><label>الاسم</label><input id="n">${creds}<label>الكلية</label><select id="fac">${facOpts()}</select>
+  <label>كود الأدمن الخاص بالكلية</label><input id="code" dir="ltr"><button id="go" class="full" onclick="doRegister('admin')">تسجيل</button><div style="margin-top:10px">${back}</div></div>`;
+}
+function homeView(){
+  const m=S.me,adm=m.role==='admin',tb=(k,t)=>`<button class="${S.tab===k?'on':''}" onclick="S.tab='${k}';tabGo()">${t}</button>`;
+  if(m.role==='pending_admin')return `<div class="card hd"><b>${esc(m.full_name)}</b><button onclick="logout()">خروج</button></div><div class="card narrow"><h3>أدخلي كود الأدمن</h3><div class="mu">حسابك اتعمل، بس لازم تثبتي الكلية بكودها.</div><label>الكلية</label><select id="fac">${facOpts()}</select><label>الكود</label><input id="code" dir="ltr"><button class="full" onclick="submitAdminCode()">تأكيد</button></div>`;
+  const st=S.mem.map(x=>x.status),waiting=!adm&&!st.includes('approved'),rej=waiting&&st.length&&st.every(x=>x==='rejected');
+  let body='';
+  if(S.tab==='req'&&adm)body=`<div class="card"><h3>طلبات الانضمام</h3>${(S.reqs||[]).map(r=>{const p=r.profiles||{};return `<div class="row"><div><b>${esc(p.full_name)}</b> <span class="tag">${ROLE[p.role]||''}</span><div class="mu">${esc(p.email)} ${p.student_id?' · ID '+esc(p.student_id):''} ${r.years?' · '+esc(r.years.name):''}</div><div class="mu">${esc(r.faculties&&r.faculties.name)}</div></div><span><button class="ok" onclick="decide('${r.user_id}','${r.faculty_id}',true)">قبول</button> <button class="bad" onclick="decide('${r.user_id}','${r.faculty_id}',false)">رفض</button></span></div>`}).join('')||'<div class="mu">لا توجد طلبات الآن.</div>'}</div>`;
+  else if(S.tab==='set')body=`<div class="card"><h3>الإعدادات</h3><label>الإيميل</label><input value="${esc(m.email)}" disabled><label>رقم الموبايل</label><input id="sp" value="${esc(m.phone||'')}"><button class="full" onclick="savePhone()">حفظ</button><div class="mu" style="margin-top:8px">الاسم والرقم القومي والـID لا يمكن تغييرها.</div></div>`;
+  else body=waiting?`<div class="card"><h3>${rej?'تم رفض طلبك':'طلبك بانتظار موافقة الأدمن ⏳'}</h3><div class="mu">${rej?'تواصلي مع أدمن الكلية.':'هتقدري تستخدمي النظام بعد القبول.'}</div></div>`:`<div class="card"><h3>أهلاً ${esc(m.full_name)} 👋</h3><div class="mu">حسابك مفعّل. المواد والحضور هتظهر هنا في الخطوة الجاية.</div></div>`;
+  return `<div class="card hd"><b>🎓 ${esc(m.full_name)} <span class="tag">${ROLE[m.role]}</span></b><button onclick="logout()">خروج</button></div>
+  <div class="tabs">${adm?tb('req','الطلبات'):tb('home','الرئيسية')}${tb('set','الإعدادات')}</div>${body}`;
+}
+async function tabGo(){if(S.tab==='req')await loadRequests();render()}
+function render(){$('#app').innerHTML=(S.me?homeView():authView())}
+
+/* ====== PWA ====== */
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+
+(async()=>{await loadPublic();await loadMe();if(S.me&&S.me.role==='admin')await loadRequests();render()})();
+</script>
+</body>
+</html>
