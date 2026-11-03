@@ -6,7 +6,7 @@ window.loadTab=async function(){await _lt();if(S.me.role==='student'&&S.tab==='s
 async function loadSched(){
   const [c,r,s]=await Promise.all([sb.from('courses').select('id,name,units(id,kind,name,day,start_time,end_time,capacity,sections(name))').order('name'),sb.from('section_requests').select('id,course_id,unit_id,status,created_at').eq('student_id',S.me.id).order('created_at'),sb.from('schedule_submissions').select('id',{count:'exact',head:true})]);
   S.sc=(c.data||[]).filter(x=>(x.units||[]).some(u=>u.kind==='period'));S.rq=r.data||[];S.used=s.count||0}
-const plabel=u=>`${esc(u.sections&&u.sections.name||'')} - ${esc(u.name)} · ${DAYS[u.day]} ${t5(u.start_time)}-${t5(u.end_time)}${u.capacity?' (سعة '+u.capacity+')':''}`;
+const plabel=u=>`${esc(u.sections&&u.sections.name||'')} - ${esc(u.name)} · ${DAYS[u.day]} ${rng(u.start_time,u.end_time)}${u.capacity?' (سعة '+u.capacity+')':''}`;
 const popts=(c,sel)=>'<option value="">— بدون —</option>'+(c.units||[]).filter(u=>u.kind==='period').map(u=>`<option value="${u.id}" ${u.id===sel?'selected':''}>${plabel(u)}</option>`).join('');
 const activeReq=cid=>S.rq.filter(r=>r.course_id===cid&&['pending','accepted'].includes(r.status)).pop();
 function schedView(){
