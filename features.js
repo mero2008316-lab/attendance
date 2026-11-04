@@ -18,7 +18,7 @@ document.head.insertAdjacentHTML('beforeend','<style>.center{min-height:100vh;di
 const _auth=window.authView;
 window.authView=function(){
   if(S.screen==='login')return `<div class="card narrow"><h2 style="font-size:24px">🎓 الحضور الذكي</h2><div class="mu">سجّلي دخولك للمتابعة</div>${creds}<button id="go" class="full big" onclick="doLogin()">دخول</button><button class="ghost full big" onclick="S.screen='choose';render()">إنشاء حساب جديد</button></div>`;
-  if(S.screen==='choose')return `<div class="card narrow"><h2>إنشاء حساب جديد</h2><div class="mu">اختاري نوع الحساب</div><button class="full big" onclick="S.screen='student';render()">🎒 طالب</button><button class="full big" onclick="S.screen='staff';render()">👨‍🏫 دكتور / معيد</button><button class="full big" onclick="S.screen='admin';render()">🛡️ أدمن كلية</button><div style="margin-top:12px">${back}</div></div>`;
+  if(S.screen==='choose')return `<div class="card narrow"><h2>إنشاء حساب جديد</h2><div class="mu">اختاري نوع الحساب</div><button class="full big" onclick="S.screen='student';render()">🎒 طالب</button><button class="full big" onclick="S.screen='staff';render()">👨‍🏫 دكتور / معيد</button><div style="margin-top:12px">${back}</div></div>`;
   return _auth()};
 /* ---- data ---- */
 async function termStart(){const r=await sb.from('terms').select('start_date').eq('faculty_id',fid()).eq('is_current',true).limit(1);return (r.data&&r.data[0]&&r.data[0].start_date)||iso(new Date())}
@@ -110,14 +110,15 @@ window.render=function(){
   const tb=(k,t)=>`<button class="${S.tab===k?'on':''}" onclick="go('${k}')">${t}</button>`;
   let body='';
   if(!ok){const rej=S.mem.length&&S.mem.every(x=>x.status==='rejected');body=`<div class="card"><h3>${rej?'تم رفض طلبك':'طلبك بانتظار موافقة الأدمن ⏳'}</h3></div>`}
-  else if(S.tab==='set')body=`<div class="card"><h3>الإعدادات</h3><label>الإيميل</label><input value="${esc(m.email)}" disabled><label>رقم الموبايل</label><input id="sp" value="${esc(m.phone||'')}"><button class="full" onclick="if(!okPhone(val('sp').trim()))return toast('رقم الموبايل غير صحيح');savePhone()">حفظ</button></div>`;
+  else if(S.tab==='set')body=`<div class="card"><h3>الإعدادات</h3><label>الإيميل</label><input value="${esc(m.email)}" disabled><label>رقم الموبايل</label><input id="sp" value="${esc(m.phone||'')}"><button class="full" onclick="if(!okPhone(val('sp').trim()))return toast('رقم الموبايل غير صحيح');savePhone()">حفظ</button></div>${adm?termForm():''}`;
   else if(adm&&S.tab==='req')body=homeView().split('<div class="tabs">')[1].split('</div>').slice(1).join('</div>');
   else if(adm&&S.tab==='crs')body=adminCourses();
+  else if(adm&&S.tab==='usr')body=usersView();
   else if(adm&&S.tab==='xls')body=xlsView();
   else if(m.role==='student'&&S.tab==='sch')body=schedView();
   else if(m.role==='student')body=S.cid?courseView():`<div class="card"><h3>موادي</h3>${(S.courses||[]).map(c=>`<div class="row"><b>${esc(c.name)}</b><button onclick="openCourse('${c.id}')">فتح</button></div>`).join('')||'<div class="mu">لا توجد مواد لفرقتك بعد.</div>'}</div>`;
   else body=S.uid?unitView():`<div class="card"><h3>موادي</h3>${(S.units||[]).map(u=>`<div class="row"><div><b>${esc(u.courses&&u.courses.name)}</b> <span class="tag">${u.kind==='lecture'?'محاضرة':esc(u.name)}</span><div class="mu">${DAYS[u.day]} ${rng(u.start_time,u.end_time)}</div></div><button onclick="openUnit('${u.id}')">فتح</button></div>`).join('')||'<div class="mu">لا توجد مواد مسندة إليك بعد.</div>'}</div>`;
-  app.innerHTML=`<div class="card hd"><b>🎓 ${esc(m.full_name)} <span class="tag">${ROLE[m.role]}</span></b><button onclick="logout()">خروج</button></div><div class="tabs">${adm?tb('req','الطلبات')+tb('crs','المواد')+tb('xls','التقارير'):ok?tb('my','موادي')+(m.role==='student'?tb('sch','جدولي'):''):''}${ok?tb('set','الإعدادات'):''}</div>${body}`;
+  app.innerHTML=`<div class="card hd"><b>🎓 ${esc(m.full_name)} <span class="tag">${ROLE[m.role]}</span></b><button onclick="logout()">خروج</button></div><div class="tabs">${adm?tb('req','الطلبات')+tb('crs','المواد')+tb('usr','المستخدمين')+tb('xls','التقارير'):ok?tb('my','موادي')+(m.role==='student'?tb('sch','جدولي'):''):''}${ok?tb('set','الإعدادات'):''}</div>${body}`;
   if(S.sub==='met'&&S.uid)drawQR()};
 window.decide=async function(u,f,ok){const r=await sb.rpc('approve_membership',{p_user:u,p_faculty:f,p_ok:ok});if(r.error)return toast(errMsg(r.error));toast(ok?'تم القبول ✅':'تم الرفض');await loadRequests();render()};
 render();
