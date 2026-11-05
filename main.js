@@ -6,7 +6,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const S={screen:'login',faculties:[],years:[],me:null,mem:[],tab:'req',busy:false};
 const ROLE={student:'طالب',doctor:'دكتور',ta:'معيد',admin:'أدمن',pending_admin:'أدمن (بانتظار الكود)'};
-const ERR={'Invalid login credentials':'الإيميل أو كلمة المرور غير صحيحة','User already registered':'الإيميل مسجل قبل كده','bad_code':'كود الأدمن غير صحيح لهذه الكلية','not_allowed':'غير مسموح لك بهذا الإجراء','Password should be':'كلمة المرور قصيرة (6 أحرف على الأقل)','Email not confirmed':'الإيميل غير مؤكد (اقفلي Confirm email من Supabase)','rate limit':'محاولات كتير، استني شوية وجربي تاني'};
+const ERR={'Invalid login credentials':'الإيميل أو كلمة المرور غير صحيحة','User already registered':'الإيميل مسجل','bad_code':'كود الأدمن غير صحيح لهذه الكلية','not_allowed':'غير مسموح لك بهذا الإجراء','Password should be':' (6 أحرف على الأقل)','Email not confirmed':'الإيميل غير مؤكد (اقفلي Confirm email من Supabase)','rate limit':'محاولات كتير، استني شوية وجربي تاني'};
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',4000)}
 function errMsg(e){const m=(e&&e.message)||String(e);for(const k in ERR)if(m.includes(k))return ERR[k];return 'حصل خطأ: '+m}
 const val=id=>(document.getElementById(id)||{}).value||'';
@@ -42,7 +42,7 @@ async function doLogin(){
 }
 async function doRegister(kind){
   const e=val('e').trim().toLowerCase(),p=val('p'),n=val('n').trim();
-  if(!n||!e||p.length<6)return toast('كمّلي البيانات (كلمة المرور 6 أحرف على الأقل)');
+  if(!n||!e||p.length<6)return toast(' (كلمة المرور 6 أحرف على الأقل)');
   let data={role:kind==='admin'?'admin':kind,full_name:n};
   if(kind==='student'){
     if(!val('sid')||val('nid').length!==14)return toast('أدخلي الـID والرقم القومي (14 رقم)');
@@ -50,9 +50,9 @@ async function doRegister(kind){
     Object.assign(data,{student_id:val('sid').trim(),national_id:val('nid').trim(),faculty_id:val('fac'),year_id:val('yr')});
   }else if(kind==='doctor'||kind==='ta'){
     const ids=[...document.querySelectorAll('.cc:checked')].map(x=>x.value);
-    if(!val('ph')||!ids.length)return toast('أدخلي الموبايل واختاري كلية واحدة على الأقل');
+    if(!val('ph')||!ids.length)return toast('أدخلي الموبايل واختار كلية واحدة على الأقل');
     data.role=val('rl');Object.assign(data,{phone:val('ph').trim(),faculty_ids:ids});
-  }else if(!val('fac')||!val('code'))return toast('اختاري الكلية وأدخلي كود الأدمن');
+  }else if(!val('fac')||!val('code'))return toast('اختار الكلية وأدخلي كود الأدمن');
   const b=$('#go');b.disabled=true;
   const r=await sb.auth.signUp({email:e,password:p,options:{data}});
   if(r.error){b.disabled=false;return toast(errMsg(r.error))}
@@ -88,7 +88,7 @@ const creds='<label>الإيميل</label><input id="e" type="email" dir="ltr" a
 const back='<button class="link" onclick="S.screen=\'login\';render()">رجوع لتسجيل الدخول</button>';
 function authView(){
   const s=S.screen;
-  if(s==='login')return `<div class="card narrow"><h2>🎓 الحضور الذكي</h2>${creds}<button id="go" class="full" onclick="doLogin()">دخول</button>
+  if(s==='login')return `<div class="card narrow"><h2>🎓 Attendance NUSC</h2>${creds}<button id="go" class="full" onclick="doLogin()">دخول</button>
   <div class="mu" style="margin:18px 0 6px">مستخدم جديد؟</div>
   <button class="link" onclick="S.screen='student';render()">طالب</button> · <button class="link" onclick="S.screen='staff';render()">دكتور / معيد</button> · <button class="link" onclick="S.screen='admin';render()">أدمن كلية</button></div>`;
   if(s==='student')return `<div class="card narrow"><h2>تسجيل طالب</h2><label>الاسم (كما في الكارنيه)</label><input id="n"><label>الرقم الجامعي (ID)</label><input id="sid"><label>الرقم القومي</label><input id="nid" inputmode="numeric" maxlength="14">${creds}
@@ -108,7 +108,7 @@ function homeView(){
   let body='';
   if(S.tab==='req'&&adm)body=`<div class="card"><h3>طلبات الانضمام</h3>${(S.reqs||[]).map(r=>{const p=r.profiles||{};return `<div class="row"><div><b>${esc(p.full_name)}</b> <span class="tag">${ROLE[p.role]||''}</span><div class="mu">${esc(p.email)} ${p.student_id?' · ID '+esc(p.student_id):''} ${r.years?' · '+esc(r.years.name):''}</div><div class="mu">${esc(r.faculties&&r.faculties.name)}</div></div><span><button class="ok" onclick="decide('${r.user_id}','${r.faculty_id}',true)">قبول</button> <button class="bad" onclick="decide('${r.user_id}','${r.faculty_id}',false)">رفض</button></span></div>`}).join('')||'<div class="mu">لا توجد طلبات الآن.</div>'}</div>`;
   else if(S.tab==='set')body=`<div class="card"><h3>الإعدادات</h3><label>الإيميل</label><input value="${esc(m.email)}" disabled><label>رقم الموبايل</label><input id="sp" value="${esc(m.phone||'')}"><button class="full" onclick="savePhone()">حفظ</button><div class="mu" style="margin-top:8px">الاسم والرقم القومي والـID لا يمكن تغييرها.</div></div>`;
-  else body=waiting?`<div class="card"><h3>${rej?'تم رفض طلبك':'طلبك بانتظار موافقة الأدمن ⏳'}</h3><div class="mu">${rej?'تواصلي مع أدمن الكلية.':'هتقدري تستخدمي النظام بعد القبول.'}</div></div>`:`<div class="card"><h3>أهلاً ${esc(m.full_name)} 👋</h3><div class="mu">حسابك مفعّل. المواد والحضور هتظهر هنا في الخطوة الجاية.</div></div>`;
+  else body=waiting?`<div class="card"><h3>${rej?'تم رفض طلبك':'طلبك بانتظار موافقة الأدمن ⏳'}</h3><div class="mu">${rej?'تواصلي مع أدمن الكلية.':'هتقدر تستخدم النظام بعد القبول.'}</div></div>`:`<div class="card"><h3>أهلاً ${esc(m.full_name)} 👋</h3><div class="mu">حسابك مفعّل. المواد والحضور هتظهر هنا في الخطوة الجاية.</div></div>`;
   return `<div class="card hd"><b>🎓 ${esc(m.full_name)} <span class="tag">${ROLE[m.role]}</span></b><button onclick="logout()">خروج</button></div>
   <div class="tabs">${adm?tb('req','الطلبات'):tb('home','الرئيسية')}${tb('set','الإعدادات')}</div>${body}`;
 }
@@ -122,7 +122,7 @@ if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWor
 
 ;
 /* Batch 1 fixes + Batch 2 (admin setup) + Batch 3 (QR attendance). Loaded after the main script. */
-Object.assign(ERR,{not_enrolled:'أنت غير مسجل في هذه المادة',qr_expired:'الـQR قديم أو منتهي، اطلبي الحالي من الدكتور',window_closed:'التسجيل مغلق حالياً',no_location:'لم يحدد الدكتور موقع المحاضرة بعد',too_far:'أنت بعيد عن مكان المحاضرة',other_device:'حسابك مربوط بجهاز آخر، راجعي الأدمن',already_checked_in:'تم تسجيل حضورك قبل كده',need_gps:'فعّلي الموقع (GPS) من المتصفح',not_in_period:'أنت غير مسجل في هذه الفترة',locked_or_not_allowed:'التعديل مقفول (اليوم انتهى)'});
+Object.assign(ERR,{not_enrolled:'غير مسجل في هذه المادة',qr_expired:'الـQR قديم أو منتهي، اطلب الحالي من الدكتور',window_closed:'التسجيل مغلق حالياً',no_location:'لم يحدد الدكتور موقع المحاضرة بعد',too_far:' بعيد عن مكان المحاضرة',other_device:'حسابك مربوط بجهاز آخر، راجعي الأدمن',already_checked_in:'تم تسجيل حضورك قبل ',need_gps:'فعّل الموقع (GPS) من المتصفح',not_in_period:'أنت غير مسجل في هذه الفترة',locked_or_not_allowed:'التعديل مقفول (اليوم انتهى)'});
 const rng=(a,b)=>'\u2066'+String(a||'').slice(0,5)+' - '+String(b||'').slice(0,5)+'\u2069';
 const DAYS=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'],t5=t=>String(t||'').slice(0,5),iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const fid=()=>(S.mem.find(m=>m.status==='approved')||{}).faculty_id;
@@ -132,7 +132,7 @@ function okNid(v){if(!/^[23]\d{13}$/.test(v))return false;const m=+v.slice(3,5),
 const _reg=window.doRegister;
 window.doRegister=function(kind){
   const e=val('e').trim(),n=val('n').trim().split(/\s+/).filter(Boolean),er=[];
-  if(n.length<2)er.push('اكتبي الاسم من كلمتين على الأقل');if(!okMail(e))er.push('الإيميل غير صحيح');
+  if(n.length<2)er.push('اكتب الاسم من كلمتين على الأقل');if(!okMail(e))er.push('الإيميل غير صحيح');
   if(kind==='student'&&!okNid(val('nid').trim()))er.push('الرقم القومي غير صحيح (14 رقم)');
   if(kind==='doctor'&&!okPhone(val('ph').trim()))er.push('رقم الموبايل غير صحيح (11 رقم يبدأ بـ01)');
   if(er.length)return toast('⚠️ '+er.join(' — '));return _reg(kind)};
@@ -140,8 +140,8 @@ window.doRegister=function(kind){
 document.head.insertAdjacentHTML('beforeend','<style>.center{min-height:100vh;display:flex;align-items:center;justify-content:center}.center .narrow{width:100%;max-width:520px;margin:0;padding:30px}.big{padding:14px;font-size:16px}input[type=radio]{width:auto;margin:0 0 0 8px;flex-shrink:0}.cb{gap:4px}.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--bd);padding:6px 8px;text-align:center;white-space:nowrap}th{background:var(--hn2)}.qrb{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:12px;width:fit-content;margin:8px auto}.pbar{height:10px;background:var(--bd);border-radius:9px;overflow:hidden}.pbar i{display:block;height:100%}</style>');
 const _auth=window.authView;
 window.authView=function(){
-  if(S.screen==='login')return `<div class="card narrow"><h2 style="font-size:24px">🎓 الحضور الذكي</h2><div class="mu">سجّلي دخولك للمتابعة</div>${creds}<button id="go" class="full big" onclick="doLogin()">دخول</button><button class="ghost full big" onclick="S.screen='choose';render()">إنشاء حساب جديد</button></div>`;
-  if(S.screen==='choose')return `<div class="card narrow"><h2>إنشاء حساب جديد</h2><div class="mu">اختاري نوع الحساب</div><button class="full big" onclick="S.screen='student';render()">🎒 طالب</button><button class="full big" onclick="S.screen='staff';render()">👨‍🏫 دكتور / معيد</button><div style="margin-top:12px">${back}</div></div>`;
+  if(S.screen==='login')return `<div class="card narrow"><h2 style="font-size:24px">🎓 Attendance NUSC</h2><div class="mu">سجّل دخولك للمتابعة</div>${creds}<button id="go" class="full big" onclick="doLogin()">دخول</button><button class="ghost full big" onclick="S.screen='choose';render()">إنشاء حساب جديد</button></div>`;
+  if(S.screen==='choose')return `<div class="card narrow"><h2>إنشاء حساب جديد</h2><div class="mu">اختاري نوع الحساب</div><button class="full big" onclick="S.screen='student';render()"> طالب</button><button class="full big" onclick="S.screen='staff';render()"> دكتور / معيد</button><div style="margin-top:12px">${back}</div></div>`;
   return _auth()};
 /* ---- data ---- */
 async function termStart(){const r=await sb.from('terms').select('start_date').eq('faculty_id',fid()).eq('is_current',true).limit(1);return (r.data&&r.data[0]&&r.data[0].start_date)||iso(new Date())}
@@ -166,7 +166,7 @@ async function addCourse(){
   const u=await sb.from('units').insert({course_id:c.data.id,kind:'lecture',name:'محاضرة',instructor_id:val('cd'),day:+val('cw'),start_time:val('cf'),end_time:val('ct')});
   if(u.error)return toast(errMsg(u.error));toast('تمت إضافة المادة ✅');go('crs')}
 async function addPeriod(){
-  const c=val('pc'),sn=val('ps').trim();if(!c||!sn||!val('pt'))return toast('اختاري المادة واكتبي اسم السكشن واختاري المعيد');
+  const c=val('pc'),sn=val('ps').trim();if(!c||!sn||!val('pt'))return toast('اختار المادة واكتب اسم السكشن واختار المعيد');
   let s=await sb.from('sections').select('id').eq('course_id',c).eq('name',sn).limit(1),sid=s.data&&s.data[0]&&s.data[0].id;
   if(!sid){const n=await sb.from('sections').insert({course_id:c,name:sn}).select('id').single();if(n.error)return toast(errMsg(n.error));sid=n.data.id}
   const u=await sb.from('units').insert({course_id:c,section_id:sid,kind:'period',name:val('pn').trim()||'فترة',instructor_id:val('pt'),day:+val('pw'),start_time:val('pf'),end_time:val('pe'),capacity:+val('pk')||null});
@@ -175,7 +175,7 @@ async function delCourse(id){if(!confirm('حذف المادة وكل بيانا�
 function adminCourses(){
   const cs=S.courses||[],yn=id=>(S.years.find(y=>y.id===id)||{}).name||'';
   return `<div class="card"><h3>إضافة مادة (محاضرة)</h3><div class="grid2"><div><label>اسم المادة</label><input id="cn"></div><div><label>الفرقة</label><select id="cy">${yopt()}</select></div><div><label>الدكتور</label><select id="cd"><option value="">اختاري</option>${sopt()}</select></div><div><label>اليوم</label><select id="cw">${dopt}</select></div><div><label>من</label><input id="cf" type="time" value="10:00"></div><div><label>إلى</label><input id="ct" type="time" value="12:00"></div><div><label>حد الغياب %</label><input id="cl" type="number" value="25"></div></div><button class="full" onclick="addCourse()">إضافة المادة</button></div>
-  <div class="card"><h3>إضافة سكشن / فترة</h3><div class="grid2"><div><label>المادة</label><select id="pc">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div><div><label>اسم السكشن</label><input id="ps" placeholder="مثلاً سكشن 1"></div><div><label>اسم الفترة</label><input id="pn" placeholder="مثلاً فترة أ"></div><div><label>المعيد</label><select id="pt"><option value="">اختاري</option>${sopt()}</select></div><div><label>اليوم</label><select id="pw">${dopt}</select></div><div><label>من</label><input id="pf" type="time" value="12:00"></div><div><label>إلى</label><input id="pe" type="time" value="14:00"></div><div><label>السعة</label><input id="pk" type="number" value="30"></div></div><button class="full" onclick="addPeriod()">إضافة الفترة</button></div>
+  <div class="card"><h3>إضافة سكشن</h3><div class="grid2"><div><label>المادة</label><select id="pc">${cs.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div><div><label>اسم السكشن</label><input id="ps" placeholder="EX : سكشن 1"></div><div><label>اسم الفترة</label><input id="pn" placeholder="مثلاً فترة أ"></div><div><label>المعيد</label><select id="pt"><option value="">اختاري</option>${sopt()}</select></div><div><label>اليوم</label><select id="pw">${dopt}</select></div><div><label>من</label><input id="pf" type="time" value="12:00"></div><div><label>إلى</label><input id="pe" type="time" value="14:00"></div><div><label>السعة</label><input id="pk" type="number" value="30"></div></div><button class="full" onclick="addPeriod()">إضافة الفترة</button></div>
   <div class="card"><h3>المواد الحالية</h3>${cs.map(c=>`<div class="row"><div><b>${esc(c.name)}</b> <span class="tag">${esc(yn(c.year_id))}</span>${(c.units||[]).map(u=>`<div class="mu">${u.kind==='lecture'?'محاضرة':esc((u.sections&&u.sections.name||'')+' - '+u.name)} · ${DAYS[u.day]} ${rng(u.start_time,u.end_time)} · ${esc(((S.staff||[]).find(p=>p.id===u.instructor_id)||{}).full_name||'')}</div>`).join('')}</div><button class="bad" onclick="delCourse('${c.id}')">حذف</button></div>`).join('')||'<div class="mu">لا توجد مواد.</div>'}</div>`}
 /* ---- instructor ---- */
 async function openUnit(id){S.uid=id;S.sub='stu';await loadUnit();render()}
