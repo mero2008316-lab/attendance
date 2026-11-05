@@ -66,5 +66,5 @@ async function exportXlsx(){
     const rows=[['الطالب','ID',...ds],...(ro.data||[]).map(s=>[s.full_name,s.student_id,...ds.map(d=>set.has(sid(d)+'|'+s.id)?1:0)])];
     const nm=(co.name+' '+(u.kind==='lecture'?'محاضرة':((u.sections&&u.sections.name)||'')+' '+u.name)).replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,27);let k=nm,i=2;while(used.has(k))k=nm.slice(0,24)+'_'+i++;used.add(k);
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),k)}
-  if(!wb.SheetNames.length)return toast('لا توجد مواد');XLSX.writeFile(wb,'attendance_'+iso(new Date())+'.xlsx');toast('تم تنزيل الملف ✅')}
+  await addPeopleSheets(wb);if(!wb.SheetNames.length)return toast('لا توجد مواد');XLSX.writeFile(wb,'attendance_'+iso(new Date())+'.xlsx');toast('تم تنزيل الملف ✅')}
 render();

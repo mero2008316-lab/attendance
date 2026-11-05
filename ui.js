@@ -50,7 +50,7 @@ window.render=function(){
   const shell=document.createElement('div');shell.className='shell';
   const btns=tabs?[...tabs.querySelectorAll('button')]:[];
   if(btns.length){const side=document.createElement('aside');side.className='side';
-    btns.forEach(b=>{const c=b.cloneNode(true),t=c.textContent.trim();c.textContent=(ICON[t]||'•')+'  '+t;side.append(c)});shell.append(side)}
+    btns.forEach(b=>{const c=b.cloneNode(true),t=c.textContent.trim();c.textContent=t;side.append(c)});shell.append(side)}
   const main=document.createElement('main');main.className='content';body.forEach(n=>main.append(n));shell.append(main);
   app.replaceChildren(top,shell);
   if(m.role==='admin'&&S.tab==='req'&&btns.length)main.innerHTML=reqView();
