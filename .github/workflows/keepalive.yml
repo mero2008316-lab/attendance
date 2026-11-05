@@ -1,11 +1,3 @@
 name: keep-supabase-awake
-on:
-  schedule:
-    - cron: '0 6 * * *'
-  workflow_dispatch:
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Ping database
-        run: curl -fsS "https://fcopxtbenksodfmobliq.supabase.co/rest/v1/faculties?select=id&limit=1" -H "apikey: sb_publishable_nRTFpE-BL9Hvcbrkg84B5Q_mXLcybos"
+on: {schedule: [{cron: '0 6 * * *'}], workflow_dispatch: {}}
+jobs: {ping: {runs-on: ubuntu-latest, steps: [{name: Ping database, run: 'curl -fsS "https://fcopxtbenksodfmobliq.supabase.co/rest/v1/faculties?select=id&limit=1" -H "apikey: sb_publishable_nRTFpE-BL9Hvcbrkg84B5Q_mXLcybos"'}]}}
